@@ -1,54 +1,60 @@
 pipeline {
     agent any
-   
+
+    environment {
+        IMAGE_NAME = "app"
+        IMAGE_TAG = "v2"
+        DOCKER_REPO = "rajyalaxmichevula/shannu12"
+    }
+
     stages {
-
-        stage('Run Selenium Tests with pytest') {
+        stage("Docker Login") {
             steps {
-                echo "Running Selenium Tests using pytest"
-                bat '"C:\\Users\\shara\\AppData\\Local\\Programs\\Python\\Python313\\python.exe" -m pip install -r requirements.txt'
-
-                bat 'start /B python app.py'
-                bat 'ping 127.0.0.1 -n 5 > nul'
-                bat 'pytest -v --maxfail=1 --disable-warnings'
+                echo "Logging into Docker Hub..."
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    bat 'docker login -u %DOCKER_USER% -p %DOCKER_PASS%'
+                }
             }
         }
 
-
-        stage('Build Docker Image') {
+        stage("Build Docker Image") {
             steps {
-                echo "Build Docker Image"
-                bat "docker build -t rajyalaxmichevula/week12:t5 ."
+                echo "Building Docker Image..."
+                bat 'docker build -t %IMAGE_NAME%:%IMAGE_TAG% .'
             }
         }
 
-        stage('Docker Login') {
+        stage("Push Docker Image to Docker Hub") {
             steps {
-                bat 'docker login -u rajyalaxmichevula -p @shannu2212'
+                echo "Tagging and pushing image..."
+                bat '''
+                    docker tag %IMAGE_NAME%:%IMAGE_TAG% %DOCKER_REPO%:latest
+                    docker push %DOCKER_REPO%:latest
+                '''
             }
         }
 
-        stage('Push Docker Image to Docker Hub') {
+        stage("Deploy to Kubernetes") {
             steps {
-                echo "Push Docker Image to Docker Hub"
-                bat "docker push rajyalaxmichevula/week12:t5"
+                echo "Deploying to Kubernetes..."
+                bat 'kubectl apply -f deployment.yaml --validate=false'
+                bat 'kubectl apply -f service.yaml'
             }
         }
-
-        stage('Deploy to Kubernetes') { 
-            steps { 
-                bat 'kubectl apply -f deployment.yaml --validate=false' 
-                bat 'kubectl apply -f service.yaml' 
-            } 
+        stage('Restart Deployment'){
+              steps{
+                  echo "Restarting Deployment to pick up new image.."
+                  bat "Kubectl rollout restart deployment/app-deployment"
+              }
         }
     }
 
     post {
         success {
-            echo 'Pipeline completed successfully!'
+            echo '✅ Pipeline completed successfully!'
         }
         failure {
-            echo 'Pipeline failed. Please check the logs.'
+            echo '❌ Pipeline failed. Please check logs.'
         }
     }
 }
