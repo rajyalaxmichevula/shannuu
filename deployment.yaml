@@ -1,25 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: register-deployment
-  labels:
-    app: register
+  name: app-deployment
 spec:
-  replicas: 1
+  replicas: 4
   selector:
     matchLabels:
-      app: register
+      app: app
   template:
     metadata:
       labels:
-        app: register
+        app: app
     spec:
       containers:
-      - name: register
-        image: rajyalaxmichevula/week12:t5
-        imagePullPolicy: Always
+      - name: app
+        image: rajyalaxmichevula/shannu12:latest
         ports:
         - containerPort: 5000
-        env:
-        - name: FLASK_ENV  1`````
-          value: production
